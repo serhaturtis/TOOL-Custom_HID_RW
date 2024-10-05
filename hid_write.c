@@ -8,14 +8,34 @@
 #include <time.h>
 
 #define BUFFER_SIZE 20
+#define DEFAULT_PERIOD_MS 250
+
+
+void print_timestamp() {
+    char buffer[64];
+    time_t now = time(NULL);
+    struct tm *tstruct = localtime(&now);
+    strftime(buffer, sizeof(buffer), "[%Y-%m-%d %H:%M:%S]", tstruct);
+    printf("%s ", buffer);
+}
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s /dev/hidrawX\n", argv[0]);
+    if (argc < 2 || argc > 3) {
+        fprintf(stderr, "Usage: %s /dev/hidrawX [period_ms]\n", argv[0]);
         return 1;
     }
 
     const char *device = argv[1];
+    int period_ms = DEFAULT_PERIOD_MS;
+
+    if (argc == 3) {
+        period_ms = atoi(argv[2]);
+        if (period_ms <= 0) {
+            fprintf(stderr, "Invalid period: %s. It must be a positive integer.\n", argv[2]);
+            return 1;
+        }
+    }
+
     int fd = open(device, O_RDWR);
     if (fd < 0) {
         perror("Failed to open device");
@@ -34,19 +54,21 @@ int main(int argc, char *argv[]) {
         FD_ZERO(&writefds);
         FD_SET(fd, &writefds);
 
-        timeout.tv_sec = 0;
-        timeout.tv_usec = 250000;  // 250 ms
+        timeout.tv_sec = period_ms / 1000;
+        timeout.tv_usec = (period_ms % 1000) * 1000;  // Convert milliseconds to microseconds
 
         int sel = select(fd + 1, NULL, &writefds, NULL, &timeout);
         if (sel > 0 && FD_ISSET(fd, &writefds)) {
-             int res = write(fd, buffer, sizeof(buffer));
+
+            int res = write(fd, buffer, sizeof(buffer));
             if (res < 0) {
                 perror("Failed to write to device");
                 close(fd);
                 return 1;
             }
 
-            printf("Wrote %d bytes to the HID device\n", res);
+            print_timestamp();
+            printf("Wrote %d bytes to the HID device (Period: %d ms)\n", res, period_ms);
         } else if (sel < 0) {
             perror("select() error");
             close(fd);

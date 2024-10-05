@@ -5,8 +5,17 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/select.h>
+#include <time.h>
 
 #define BUFFER_SIZE 64
+
+void print_timestamp() {
+    char buffer[64];
+    time_t now = time(NULL);
+    struct tm *tstruct = localtime(&now);
+    strftime(buffer, sizeof(buffer), "[%Y-%m-%d %H:%M:%S]", tstruct);
+    printf("%s ", buffer);
+}
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
@@ -43,6 +52,7 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
 
+            print_timestamp();
             printf("Received %d bytes: ", res);
             for (int i = 0; i < res; i++) {
                 printf("%02X ", buffer[i]);
